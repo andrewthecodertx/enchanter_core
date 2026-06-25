@@ -1,7 +1,6 @@
 //! # Enchanter Agent
 
-use crate::provider::{ChatMessage, LlmProvider};
-use anyhow::Result;
+use crate::provider::LlmProvider;
 
 pub struct Agent {
     provider: Box<dyn LlmProvider>,

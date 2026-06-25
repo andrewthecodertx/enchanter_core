@@ -1,7 +1,6 @@
 //! # Enchanter Tool
 
-use crate::provider::{ChatMessage, LlmProvider};
-use anyhow::Result;
+use crate::provider::LlmProvider;
 
 pub struct Tool {
     provider: Box<dyn LlmProvider>,
