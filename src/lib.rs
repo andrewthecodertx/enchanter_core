@@ -4,7 +4,7 @@
 pub mod provider;
 
 /// extensible tool system.
-pub mod tool;
+pub mod tools;
 
 /// the agent orchestration logic.
 pub mod agent;
@@ -13,5 +13,5 @@ pub mod agent;
 pub mod prelude {
     pub use crate::agent::Agent;
     pub use crate::provider::LlmProvider;
-    pub use crate::tool::Tool;
+    pub use crate::tools::Tool;
 }
