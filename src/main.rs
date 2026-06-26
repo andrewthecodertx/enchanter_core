@@ -1,6 +1,3 @@
-use core::num;
-use std::ptr::null;
-
 use enchanter_core::prelude::*;
 use enchanter_core::provider::openai::OpenAiProvider;
 
@@ -48,4 +45,3 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-
