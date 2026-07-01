@@ -4,6 +4,7 @@ use std::pin::Pin;
 
 use crate::protocol::{ChatRequest, ChatResponse, ChatStreamChunk};
 
+pub use openai::{Provider, OpenAiProvider};
 pub mod mock;
 pub mod openai;
 

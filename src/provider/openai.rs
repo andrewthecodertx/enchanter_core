@@ -1,4 +1,4 @@
-use crate::protocol::{ChatMessage, ChatRequest, ChatResponse, Role, Usage};
+use crate::protocol::{ChatMessage, ChatRequest, ChatResponse, Role, ToolCall, Usage};
 use crate::provider::LlmProvider;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -8,22 +8,24 @@ use serde::{Deserialize, Serialize};
 pub struct OpenAiProvider {
     client: Client,
     base_url: String,
-    openai_api_key: Option<String>,
+    api_key: Option<String>,
 }
 
 impl OpenAiProvider {
-    pub fn new(base_url: impl Into<String>, openai_api_key: Option<String>) -> Self {
+    pub fn new(base_url: impl Into<String>, api_key: Option<String>) -> Self {
         Self {
             client: Client::new(),
             base_url: base_url.into(),
-            openai_api_key,
+            api_key,
         }
     }
 
-    pub fn openai() -> anyhow::Result<Self> {
-        let key = std::env::var("OPENAI_API_KEY")
-            .context("OPENAI_API_KEY environment variable not set")?;
+    pub fn custom(base_url: impl Into<String>, api_key: impl Into<Option<String>>) -> Self {
+        Self::new(base_url, api_key.into())
+    }
 
+    pub fn openai() -> anyhow::Result<Self> {
+        let key = std::env::var("API_KEY").context("API_KEY environment variable not set")?;
         Ok(Self::new("https://api.openai.com/v1", Some(key)))
     }
 
@@ -33,6 +35,58 @@ impl OpenAiProvider {
 
     pub fn lm_studio() -> Self {
         Self::new("http://localhost:1234/v1", None)
+    }
+
+    pub fn from_env(provider: Provider) -> anyhow::Result<Self> {
+        let provider = match provider {
+            Provider::OpenAi => Self::openai()?,
+            Provider::Ollama => Self::ollama(),
+            Provider::LmStudio => Self::lm_studio(),
+            Provider::Custom => {
+                let base_url = std::env::var("ENCHANTER_BASE_URL").context(
+                    "ENCHANTER_BASE_URL must be set when using provider=custom",
+                )?;
+                let api_key = std::env::var("ENCHANTER_API_KEY").ok();
+                Self::custom(base_url, api_key)
+            }
+        };
+
+        Ok(provider)
+    }
+
+    pub fn default_model(&self) -> &'static str {
+        if self.base_url.contains("openai.com") {
+            "gpt-4o-mini"
+        } else if self.base_url.contains("11434") {
+            "gemma4:12b"
+        } else if self.base_url.contains("1234") {
+            "local-model"
+        } else {
+            "gpt-4o-mini"
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Provider {
+    OpenAi,
+    Ollama,
+    LmStudio,
+    Custom,
+}
+
+impl Provider {
+    pub fn from_env() -> Self {
+        std::env::var("ENCHANTER_PROVIDER")
+            .ok()
+            .and_then(|value| match value.to_lowercase().as_str() {
+                "openai" => Some(Provider::OpenAi),
+                "ollama" => Some(Provider::Ollama),
+                "lmstudio" | "lm_studio" | "lm-studio" => Some(Provider::LmStudio),
+                "custom" => Some(Provider::Custom),
+                _ => None,
+            })
+            .unwrap_or(Provider::Ollama)
     }
 }
 
@@ -46,6 +100,7 @@ struct ApiRequest<'a> {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+
     stream: bool,
 }
 
@@ -59,6 +114,8 @@ struct ApiResponse {
 struct ApiChoice {
     message: ApiMessage,
     finish_reason: Option<String>,
+    #[serde(default)]
+    tool_calls: Vec<ToolCall>,
 }
 
 #[derive(Deserialize)]
@@ -78,7 +135,6 @@ struct ApiUsage {
 impl LlmProvider for OpenAiProvider {
     async fn complete(&self, request: ChatRequest) -> anyhow::Result<ChatResponse> {
         let url = format!("{}/chat/completions", self.base_url);
-
         let body = ApiRequest {
             model: &request.model,
             messages: &request.messages,
@@ -89,7 +145,7 @@ impl LlmProvider for OpenAiProvider {
 
         let mut req = self.client.post(&url).json(&body);
 
-        if let Some(key) = &self.openai_api_key {
+        if let Some(key) = &self.api_key {
             req = req.bearer_auth(key);
         }
 
@@ -121,6 +177,7 @@ impl LlmProvider for OpenAiProvider {
                 completion_tokens: u.completion_tokens,
                 total_tokens: u.total_tokens,
             }),
+            tool_calls: choice.tool_calls,
         })
     }
 }

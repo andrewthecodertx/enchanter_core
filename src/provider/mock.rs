@@ -25,6 +25,7 @@ impl LlmProvider for MockProvider {
                 completion_tokens: 5,
                 total_tokens: 15,
             }),
+            tool_calls: Vec::new(),
         })
     }
 }
@@ -48,6 +49,7 @@ impl LlmProvider for MockStreamProvider {
             message: ChatMessage::assistant(&self.response),
             finish_reason: Some("stop".into()),
             usage: None,
+            tool_calls: Vec::new(),
         })
     }
 }

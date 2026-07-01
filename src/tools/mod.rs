@@ -1,7 +1,9 @@
-//! # Enchanter Tool
+pub mod context;
+pub mod error;
+pub mod registry;
+pub mod tool;
 
-use crate::provider::LlmProvider;
-
-pub struct Tool {
-    provider: Box<dyn LlmProvider>,
-}
+pub use context::ToolContext;
+pub use error::ToolError;
+pub use registry::ToolRegistry;
+pub use tool::Tool;
